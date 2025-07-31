@@ -8,6 +8,7 @@ from models.response_models import HackexResponse
 from utils.document_handler import download_blob_to_temp_file
 from services.ocr_service import process_document_with_ocr
 from services.qa_service import answer_query_with_rag
+from services.qa_service import cleanup_qa_service  # For cleanup after session
 
 load_dotenv()
 
@@ -46,18 +47,24 @@ async def run_hackrx(
         temp_file_path = await download_blob_to_temp_file(request.documents)
         if not temp_file_path:
             raise HTTPException(status_code=400, detail="Failed to download document")
+
         processed_document = await process_document_with_ocr(temp_file_path)
         if not processed_document:
             raise HTTPException(status_code=400, detail="OCR processing failed")
+
         answers = []
         for idx, question in enumerate(request.questions):
             answer = await answer_query_with_rag(question, processed_document)
-            if not answer or "answer" not in answer:
+            if not answer:
                 raise HTTPException(status_code=400, detail=f"Failed to answer question {idx + 1}")
-            answers.append(answer["answer"])
+            answers.append(answer)
+
         return HackexResponse(answers=answers)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+        cleanup_qa_service()
