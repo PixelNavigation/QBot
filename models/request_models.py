@@ -3,4 +3,4 @@ from typing import List
 
 class HackrxRequest(BaseModel):
     documents: HttpUrl
-    urls: List[str]
+    questions: List[str]
